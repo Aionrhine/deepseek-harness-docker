@@ -71,12 +71,15 @@ RUN set -eux; \
     sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources; \
     apt-get update; \
     apt-get install --yes --no-install-recommends \
+      bubblewrap \
       ca-certificates \
       curl \
       file \
       fonts-liberation \
       fonts-noto-cjk \
+      gh \
       git \
+      git-lfs \
       jq \
       less \
       novnc \
@@ -84,9 +87,13 @@ RUN set -eux; \
       openssh-client \
       procps \
       python3 \
+      python3-pip \
+      python3-venv \
       ripgrep \
       rsync \
+      sqlite3 \
       tini \
+      tmux \
       unzip \
       websockify \
       wget \
@@ -94,6 +101,7 @@ RUN set -eux; \
       x11vnc \
       xterm \
       xvfb \
+      yq \
       zip; \
     if [ "${CHROMIUM_FLAVOR}" = debian ]; then \
       apt-get install --yes --no-install-recommends chromium; \
