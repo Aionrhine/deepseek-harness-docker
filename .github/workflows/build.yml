@@ -11,6 +11,16 @@ on:
         description: "Upstream @deepseek-ai/dsh version"
         required: true
         default: "0.2.1-rc.5"
+  workflow_call:
+    inputs:
+      image_version:
+        description: "Image tag"
+        type: string
+        required: true
+      dsh_version:
+        description: "Upstream @deepseek-ai/dsh version"
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -70,6 +80,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: true
+          # 单架构暂存 tag 只在构建期间使用，最后会被 merge job 的 manifest 取代
           tags: ${{ env.IMAGE }}:${{ inputs.image_version }}-${{ matrix.suffix }}
           cache-from: type=gha,scope=${{ matrix.suffix }}
           cache-to: type=gha,mode=max,scope=${{ matrix.suffix }}

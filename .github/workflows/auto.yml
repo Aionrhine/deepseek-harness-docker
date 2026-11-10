@@ -1,0 +1,55 @@
+name: auto-build
+
+on:
+  schedule:
+    # 每天 03:17 UTC / 11:17 Asia/Shanghai
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: auto-build
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      image_version: ${{ steps.v.outputs.image_version }}
+      needed: ${{ steps.c.outputs.needed }}
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - id: v
+        name: Resolve the newest published DSH version
+        run: |
+          VER=$(npm view @deepseek-ai/dsh dist-tags.latest)
+          if [ -z "$VER" ]; then echo "npm returned no version" >&2; exit 1; fi
+          echo "resolved ${VER}"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "image_version=${VER}-r1" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - id: c
+        name: Check whether the image already exists
+        run: |
+          TAG="ghcr.io/aionrhine/deepseek-harness:${{ steps.v.outputs.image_version }}"
+          if docker buildx imagetools inspect "$TAG" >/dev/null 2>&1; then
+            echo "already published: $TAG"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing, will build: $TAG"
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.needed == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      image_version: ${{ needs.resolve.outputs.image_version }}
+      dsh_version: ${{ needs.resolve.outputs.version }}
