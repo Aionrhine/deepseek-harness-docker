@@ -17,7 +17,8 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/deepseek-harness
+  # 仓库名必须全小写，github.repository_owner 会保留大小写（Aionrhine）
+  IMAGE: ghcr.io/aionrhine/deepseek-harness
 
 concurrency:
   group: build-${{ inputs.image_version }}
