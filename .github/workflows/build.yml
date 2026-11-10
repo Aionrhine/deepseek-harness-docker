@@ -75,19 +75,28 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v7
+      - id: push
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: ${{ matrix.platform }}
-          push: true
-          # 单架构暂存 tag 只在构建期间使用，最后会被 merge job 的 manifest 取代
-          tags: ${{ env.IMAGE }}:${{ inputs.image_version }}-${{ matrix.suffix }}
+          # 只推 digest，不创建任何 tag；合并由 merge job 完成
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.suffix }}
           cache-to: type=gha,mode=max,scope=${{ matrix.suffix }}
           build-args: |
             DSH_VERSION=${{ inputs.dsh_version }}
             IMAGE_VERSION=${{ inputs.image_version }}
             IMAGE_REVISION=${{ github.sha }}
+      - name: Record digest
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.push.outputs.digest }}" > "/tmp/digests/${{ matrix.suffix }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.suffix }}
+          path: /tmp/digests/*
+          retention-days: 1
 
   merge:
     needs: build
@@ -99,11 +108,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
       - name: Create multi-arch manifest
         run: |
+          AMD=$(cat /tmp/digests/amd64)
+          ARM=$(cat /tmp/digests/arm64)
+          echo "amd64=${AMD}"
+          echo "arm64=${ARM}"
           docker buildx imagetools create \
             -t "${IMAGE}:${{ inputs.image_version }}" \
-            "${IMAGE}:${{ inputs.image_version }}-amd64" \
-            "${IMAGE}:${{ inputs.image_version }}-arm64"
+            "${IMAGE}@${AMD}" "${IMAGE}@${ARM}"
       - name: Show result
         run: docker buildx imagetools inspect "${IMAGE}:${{ inputs.image_version }}"
