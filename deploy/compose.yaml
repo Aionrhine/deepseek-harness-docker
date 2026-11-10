@@ -1,0 +1,54 @@
+# Minimal deployment for ghcr.io/aionrhine/deepseek-harness.
+# Copy to a directory, adjust .env, then: docker compose up -d
+name: deepseek-harness
+
+services:
+  deepseek-harness:
+    image: ${DSH_IMAGE_REPOSITORY:-ghcr.io/aionrhine/deepseek-harness}:${DSH_IMAGE_VERSION:-0.2.2-rc.1-r1}
+    container_name: deepseek-harness
+    restart: unless-stopped
+    ports:
+      # Web UI. Bind loopback and reach it through SSH/tailnet, or replace
+      # 127.0.0.1 with one private interface address.
+      - "${DSH_BIND_ADDRESS:-127.0.0.1}:${DSH_WEB_PORT:-3080}:3080"
+      # Optional in-container sshd (only starts when DSH_SSH_AUTHORIZED_KEY is set).
+      - "${DSH_BIND_ADDRESS:-127.0.0.1}:${DSH_SSH_PORT:-2222}:2222"
+    environment:
+      DSH_TELEMETRY_DISABLED: "1"
+      # Set to 0 when you do not need the model-facing browser.
+      DSH_DESKTOP_ENABLED: "${DSH_DESKTOP_ENABLED:-0}"
+      DSH_BROWSER_USE_ENABLED: "${DSH_BROWSER_USE_ENABLED:-0}"
+      # Public key(s) for the optional sshd, newline separated. Empty = no sshd.
+      DSH_SSH_AUTHORIZED_KEY: "${DSH_SSH_AUTHORIZED_KEY:-}"
+      HOME: /workspace
+    volumes:
+      - ./data/dsh-home:/home/node/.dsh
+      - ./data/workspace:/workspace
+    mem_limit: 2g
+    mem_reservation: 512m
+    pids_limit: 512
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=512m
+    # Chromium needs shared memory; keep this even with the desktop disabled
+    # if you plan to turn DSH_DESKTOP_ENABLED back on.
+    shm_size: "1gb"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3080/').then(r => { if (r.status !== 401) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 3s
+      start_period: 20s
+      retries: 3

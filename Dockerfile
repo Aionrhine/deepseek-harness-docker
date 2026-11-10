@@ -317,12 +317,14 @@ COPY --from=installer /opt/dsh-browser-use/node_modules/. /usr/local/lib/node_mo
 COPY scripts/chromium-docker /usr/local/bin/chromium-docker
 COPY scripts/dsh-container /usr/local/bin/dsh
 COPY scripts/deepseek-harness-entrypoint /usr/local/bin/deepseek-harness-entrypoint
+COPY scripts/container-entry.sh /usr/local/bin/container-entry.sh
 COPY scripts/dsh-web-relay.cjs /opt/deepseek-harness/dsh-web-relay.cjs
 COPY plugins/dsh-browser-desktop /opt/deepseek-harness/plugins/dsh-browser-desktop
 
 RUN chmod 0755 /usr/local/bin/chromium-docker \
         /usr/local/bin/dsh \
         /usr/local/bin/deepseek-harness-entrypoint \
+        /usr/local/bin/container-entry.sh \
     && mkdir -p \
       /usr/local/lib/node_modules/@deepseek-ai/dsh/node_modules/@runzhliu \
       /opt/deepseek-harness/plugins/dsh-browser-desktop/node_modules/@deepseek-ai \
@@ -397,5 +399,7 @@ LABEL org.opencontainers.image.title="DeepSeek Harness Docker (Community)" \
 # The CLI mounts a config-only HMR watcher after profile boot. Scope Node's
 # internal-module access flag to the dsh process instead of exporting it via
 # NODE_OPTIONS to every child process the agent starts.
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/deepseek-harness-entrypoint"]
+# The wrapper picks the relay interface, optionally starts sshd, then execs
+# tini with the upstream entrypoint and the image CMD arguments.
+ENTRYPOINT ["/usr/local/bin/container-entry.sh"]
 CMD ["web", "--patch", "/opt/deepseek-harness/web.cordis.patch.yml", "--no-open"]
