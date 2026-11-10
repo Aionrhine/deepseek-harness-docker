@@ -77,7 +77,6 @@ RUN set -eux; \
       file \
       fonts-liberation \
       fonts-noto-cjk \
-      gh \
       git \
       git-lfs \
       jq \
@@ -129,6 +128,25 @@ RUN set -eux; \
     fi; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p /usr/local/lib/node_modules/@deepseek-ai
+
+# GitHub CLI from upstream releases: Debian's package lags roughly ten months
+# and misses subcommands dsh-github-flow relies on (attestation, discussion).
+ARG GH_VERSION=2.103.3
+ARG GH_AMD64_SHA256=4c806978ffce1cec70853302a56d70ac6da4f19bae7adca4e1a8ab00633dd91d
+ARG GH_ARM64_SHA256=ee32df2323c8847f5fac6cb6b4b69ca75828e9329a8f22f677021f7b3306ce63
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      amd64) gh_arch=amd64; gh_sha="${GH_AMD64_SHA256}" ;; \
+      arm64) gh_arch=arm64; gh_sha="${GH_ARM64_SHA256}" ;; \
+      *) echo "unsupported architecture for gh: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl --fail --location --retry 3 --output /tmp/gh.tar.gz \
+      "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${gh_arch}.tar.gz"; \
+    printf '%s  %s\n' "${gh_sha}" /tmp/gh.tar.gz | sha256sum --check --strict -; \
+    tar --extract --gzip --file /tmp/gh.tar.gz --directory /tmp; \
+    install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${gh_arch}/bin/gh" /usr/local/bin/gh; \
+    rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_VERSION}_linux_${gh_arch}"; \
+    gh --version
 
 # The portable archive contains Chromium itself, but intentionally does not
 # bundle the Debian shared libraries it links against. Keep these packages in
