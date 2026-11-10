@@ -84,6 +84,7 @@ RUN set -eux; \
       novnc \
       openbox \
       openssh-client \
+      openssh-server \
       procps \
       python3 \
       python3-pip \
