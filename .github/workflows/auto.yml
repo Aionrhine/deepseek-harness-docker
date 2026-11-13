@@ -28,9 +28,13 @@ jobs:
       - id: v
         name: Resolve the newest published DSH version
         run: |
-          VER=$(npm view @deepseek-ai/dsh dist-tags.latest)
+          # Release candidates land on the `next` tag while `latest` still points
+          # at the promoted build, so both must be considered.
+          LATEST=$(npm view @deepseek-ai/dsh dist-tags.latest 2>/dev/null || true)
+          NEXT=$(npm view @deepseek-ai/dsh dist-tags.next 2>/dev/null || true)
+          VER=$(printf '%s\n' "$LATEST" "$NEXT" | grep -v '^$' | sort -V | tail -1)
           if [ -z "$VER" ]; then echo "npm returned no version" >&2; exit 1; fi
-          echo "resolved ${VER}"
+          echo "latest=${LATEST} next=${NEXT} chosen=${VER}"
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "image_version=${VER}-r1" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v4
